@@ -1,0 +1,221 @@
+{
+  "agent_version": "v1-baseline",
+  "note": "REAL harness output from 3 of 10 incident scenarios (INC-01, INC-02, INC-10), run against the live stack with a real OpenAI key on 2026-09-27. Not fabricated, not all 10 -- run scripts/run-eval.ps1 for the full suite.",
+  "timestamp": "2026-09-27T07:19:43.766824+00:00",
+  "total_scenarios": 3,
+  "averages": {
+    "rca_accuracy": 0.57,
+    "evidence_grounding": 0.96,
+    "tool_selection": 0.62,
+    "investigation_path": 0.93,
+    "hallucination": 1.0,
+    "avg_duration_seconds": 20.73
+  },
+  "results": [
+    {
+      "incident_id": "INC-01",
+      "target_service": "payment-service",
+      "metrics": {
+        "rca_accuracy": 1.0,
+        "evidence_grounding": 0.88,
+        "tool_selection": 0.4,
+        "investigation_path": 1.0,
+        "hallucination": 1.0,
+        "efficiency": 1.0
+      },
+      "details": {
+        "accuracy": {
+          "score": 1.0,
+          "reasoning": "The agent accurately identifies the primary root cause as the reduction in DB_POOL_SIZE from 100 to 2, which directly correlates with the issues in the Checkout Service due to insufficient database connections. This matches the ground truth root cause perfectly."
+        },
+        "grounding": {
+          "score": 0.88,
+          "citation_grounding_rate": 1.0,
+          "required_coverage_rate": 0.75,
+          "reasoning": "3/3 citations grounded; 3/4 required facts covered."
+        },
+        "tools": {
+          "score": 0.4,
+          "precision": 1.0,
+          "recall": 0.25,
+          "used": [
+            "changes"
+          ],
+          "expected": [
+            "logs",
+            "metrics",
+            "traces",
+            "changes"
+          ],
+          "missing": [
+            "logs",
+            "metrics",
+            "traces"
+          ],
+          "reasoning": "Queried 1 of 4 expected tools."
+        },
+        "path": {
+          "score": 1.0,
+          "path_length": 1,
+          "path": [
+            "changes"
+          ],
+          "consecutive_repeats": 0,
+          "reasoning": "Path of length 1 with 0 consecutive repeats."
+        },
+        "hallucination": {
+          "score": 1.0,
+          "unsupported_claims_count": 0,
+          "unsupported_examples": [],
+          "reasoning": "0 unsupported numeric claims detected in RCA."
+        },
+        "efficiency": {
+          "score": 1.0,
+          "iterations": 2,
+          "total_tool_calls": 1,
+          "duration_seconds": 9.57,
+          "total_tool_time_ms": 2726.49,
+          "reasoning": "Investigation finished in 9.6s with 1 tool calls over 2 iterations."
+        }
+      },
+      "duration_seconds": 9.57,
+      "trace_url": "http://localhost:54000/project/capstone-project/traces/31f5cfc3cc186f5b6787065c71a62a64"
+    },
+    {
+      "incident_id": "INC-02",
+      "target_service": "pricing-service",
+      "metrics": {
+        "rca_accuracy": 0.4,
+        "evidence_grounding": 1.0,
+        "tool_selection": 0.67,
+        "investigation_path": 0.8,
+        "hallucination": 1.0,
+        "efficiency": 0.76
+      },
+      "details": {
+        "accuracy": {
+          "score": 0.4,
+          "reasoning": "The agent synthesized root cause identifies latency issues in the payment-service as a contributing factor, which is relevant but does not address the primary root cause of high CPU utilization in the pricing-service due to background compute contention. It misses the direct link to the pricing-service's CPU starvation."
+        },
+        "grounding": {
+          "score": 1.0,
+          "citation_grounding_rate": 1.0,
+          "required_coverage_rate": 1.0,
+          "reasoning": "4/4 citations grounded; 3/3 required facts covered."
+        },
+        "tools": {
+          "score": 0.67,
+          "precision": 0.5,
+          "recall": 1.0,
+          "used": [
+            "traces",
+            "metrics",
+            "logs",
+            "changes"
+          ],
+          "expected": [
+            "traces",
+            "metrics"
+          ],
+          "missing": [],
+          "reasoning": "Queried 2 of 2 expected tools."
+        },
+        "path": {
+          "score": 0.8,
+          "path_length": 4,
+          "path": [
+            "changes",
+            "metrics",
+            "traces",
+            "logs"
+          ],
+          "consecutive_repeats": 0,
+          "reasoning": "Path of length 4 with 0 consecutive repeats."
+        },
+        "hallucination": {
+          "score": 1.0,
+          "unsupported_claims_count": 0,
+          "unsupported_examples": [],
+          "reasoning": "0 unsupported numeric claims detected in RCA."
+        },
+        "efficiency": {
+          "score": 0.76,
+          "iterations": 5,
+          "total_tool_calls": 4,
+          "duration_seconds": 29.68,
+          "total_tool_time_ms": 19608.15,
+          "reasoning": "Investigation finished in 29.7s with 4 tool calls over 5 iterations."
+        }
+      },
+      "duration_seconds": 29.68,
+      "trace_url": "http://localhost:54000/project/capstone-project/traces/d37e4d6bb48224154c5351b10be12c1c"
+    },
+    {
+      "incident_id": "INC-10",
+      "target_service": "cart-service",
+      "metrics": {
+        "rca_accuracy": 0.3,
+        "evidence_grounding": 1.0,
+        "tool_selection": 0.8,
+        "investigation_path": 1.0,
+        "hallucination": 1.0,
+        "efficiency": 0.87
+      },
+      "details": {
+        "accuracy": {
+          "score": 0.3,
+          "reasoning": "The agent's synthesized root cause incorrectly attributes the 500 errors to an interaction with the checkout-service and higher latency, rather than identifying the unhandled KeyError in the cart-service's item pricing lookup as the true root cause. This indicates a misunderstanding of the primary issue."
+        },
+        "grounding": {
+          "score": 1.0,
+          "citation_grounding_rate": 1.0,
+          "required_coverage_rate": 1.0,
+          "reasoning": "4/4 citations grounded; 3/3 required facts covered."
+        },
+        "tools": {
+          "score": 0.8,
+          "precision": 0.67,
+          "recall": 1.0,
+          "used": [
+            "logs",
+            "metrics",
+            "changes"
+          ],
+          "expected": [
+            "logs",
+            "changes"
+          ],
+          "missing": [],
+          "reasoning": "Queried 2 of 2 expected tools."
+        },
+        "path": {
+          "score": 1.0,
+          "path_length": 3,
+          "path": [
+            "logs",
+            "metrics",
+            "changes"
+          ],
+          "consecutive_repeats": 0,
+          "reasoning": "Path of length 3 with 0 consecutive repeats."
+        },
+        "hallucination": {
+          "score": 1.0,
+          "unsupported_claims_count": 0,
+          "unsupported_examples": [],
+          "reasoning": "0 unsupported numeric claims detected in RCA."
+        },
+        "efficiency": {
+          "score": 0.87,
+          "iterations": 4,
+          "total_tool_calls": 3,
+          "duration_seconds": 22.95,
+          "total_tool_time_ms": 15994.32,
+          "reasoning": "Investigation finished in 22.9s with 3 tool calls over 4 iterations."
+        }
+      },
+      "duration_seconds": 22.95,
+      "trace_url": "http://localhost:54000/project/capstone-project/traces/445306ee8a316ed4b79ba04374d2a91c"
+    }
+  ]
+}

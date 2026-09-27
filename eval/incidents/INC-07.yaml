@@ -1,0 +1,28 @@
+id: INC-07
+alert_text: >
+  Payment Service has been restarting unexpectedly with checkout requests
+  failing during the restarts. Identify the probable root cause.
+target_service: payment-service
+load_rps: 10
+duration_seconds: 40
+fault:
+  service: payment-service
+  type: restart_on_oom
+  params:
+    memory_leak_mb_per_tick: 30
+    threshold_mb: 250
+  change_log: null
+ground_truth:
+  root_cause: >
+    Payment Service memory usage grew until it crossed the container's
+    effective memory limit, triggering an OOM kill and restart
+    (simulating a Kubernetes OOMKilled event).
+  confidence: high
+  required_evidence:
+    - payment-service resident memory climbs steadily until the process restarts
+    - service_restarts_total for payment-service increments during the window
+    - requests fail or spike in latency around the restart
+  expected_tools: [metrics, changes]
+  expected_recommended_action: >
+    Raise the payment-service memory limit and fix the underlying leak;
+    treat as capacity/limits issue after SRE approval.

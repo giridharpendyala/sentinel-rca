@@ -1,0 +1,26 @@
+id: INC-03
+alert_text: >
+  Cart Service memory usage has been climbing steadily for the last several
+  minutes with no corresponding traffic increase. Identify the probable root cause.
+target_service: cart-service
+load_rps: 15
+duration_seconds: 45
+fault:
+  service: cart-service
+  type: memory_leak
+  params:
+    mb_per_tick: 20
+  change_log: null
+ground_truth:
+  root_cause: >
+    A memory leak in cart-service is causing steadily increasing resident
+    memory usage, unrelated to request volume.
+  confidence: high
+  required_evidence:
+    - cart-service resident memory grows steadily over the incident window
+    - memory growth is not correlated with request rate
+    - no recent deployment or configuration change on cart-service
+  expected_tools: [metrics, changes]
+  expected_recommended_action: >
+    Restart cart-service to reclaim memory and schedule a heap/allocation
+    profiling pass after SRE approval; treat as a code-level leak, not traffic.

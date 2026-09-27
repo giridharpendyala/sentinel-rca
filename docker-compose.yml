@@ -1,0 +1,249 @@
+name: capstone
+
+networks:
+  capstone-net: {}
+
+volumes:
+  prometheus-data: {}
+  loki-data: {}
+  tempo-data: {}
+  grafana-data: {}
+  lf-postgres-data: {}
+  lf-clickhouse-data: {}
+  lf-minio-data: {}
+
+services:
+  # ---------------- Observability infra ----------------
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    ports: ["59090:9090"]
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks: [capstone-net]
+
+  loki:
+    image: grafana/loki:3.1.1
+    ports: ["53100:3100"]
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    volumes:
+      - ./infra/loki/loki-config.yaml:/etc/loki/loki-config.yaml
+      - loki-data:/loki
+    networks: [capstone-net]
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    ports: ["53201:3200"]
+    volumes:
+      - ./infra/tempo/tempo.yaml:/etc/tempo/tempo.yaml
+      - tempo-data:/var/tempo
+    networks: [capstone-net]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.112.0
+    command: ["--config=/etc/otel/otel-collector-config.yaml"]
+    volumes:
+      - ./infra/otel-collector/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
+    ports: ["54317:4317", "54318:4318"]
+    depends_on: [tempo]
+    networks: [capstone-net]
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    ports: ["53300:3000"]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning
+      - ./infra/grafana/dashboards:/etc/grafana/dashboards
+      - grafana-data:/var/lib/grafana
+    depends_on: [prometheus, loki, tempo]
+    networks: [capstone-net]
+
+  # ---------------- Langfuse (self-hosted AgentOps) ----------------
+  lf-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: ${LANGFUSE_DB_PASSWORD}
+      POSTGRES_DB: langfuse
+    ports: ["55500:5432"]
+    volumes: ["lf-postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [capstone-net]
+
+  lf-clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    ports: ["58123:8123", "59100:9000"]
+    volumes: ["lf-clickhouse-data:/var/lib/clickhouse"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [capstone-net]
+
+  lf-redis:
+    image: redis:7.4-alpine
+    ports: ["56380:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [capstone-net]
+
+  lf-minio:
+    image: quay.io/minio/minio:RELEASE.2024-11-07T00-52-20Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports: ["59002:9000", "59003:9001"]
+    volumes: ["lf-minio-data:/data"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [capstone-net]
+
+  lf-minio-init:
+    image: quay.io/minio/mc:RELEASE.2024-11-05T11-29-45Z
+    depends_on:
+      lf-minio: { condition: service_healthy }
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://lf-minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
+      (mc mb local/langfuse || true) &&
+      exit 0
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    networks: [capstone-net]
+
+  langfuse-web:
+    image: langfuse/langfuse:3
+    ports: ["54000:3000"]
+    environment:
+      DATABASE_URL: postgresql://langfuse:${LANGFUSE_DB_PASSWORD}@lf-postgres:5432/langfuse
+      CLICKHOUSE_MIGRATION_URL: clickhouse://lf-clickhouse:9000
+      CLICKHOUSE_URL: http://lf-clickhouse:8123
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      REDIS_CONNECTION_STRING: redis://lf-redis:6379
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://lf-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: us-east-1
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      NEXTAUTH_URL: http://localhost:54000
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
+      SALT: ${LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME}
+      LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD}
+      LANGFUSE_INIT_USER_ROLE: ${LANGFUSE_INIT_USER_ROLE}
+    depends_on:
+      lf-postgres: { condition: service_healthy }
+      lf-clickhouse: { condition: service_healthy }
+      lf-redis: { condition: service_healthy }
+      lf-minio: { condition: service_healthy }
+    networks: [capstone-net]
+
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    ports: ["54001:3030"]
+    environment:
+      DATABASE_URL: postgresql://langfuse:${LANGFUSE_DB_PASSWORD}@lf-postgres:5432/langfuse
+      CLICKHOUSE_MIGRATION_URL: clickhouse://lf-clickhouse:9000
+      CLICKHOUSE_URL: http://lf-clickhouse:8123
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      REDIS_CONNECTION_STRING: redis://lf-redis:6379
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://lf-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: us-east-1
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      SALT: ${LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
+    depends_on:
+      lf-postgres: { condition: service_healthy }
+      lf-clickhouse: { condition: service_healthy }
+      lf-redis: { condition: service_healthy }
+      lf-minio: { condition: service_healthy }
+    networks: [capstone-net]
+
+  # ---------------- Synthetic microservices app ----------------
+  incident-controller:
+    build: { context: ., dockerfile: services/incident_controller/Dockerfile }
+    ports: ["58006:8000"]
+    volumes:
+      - ./eval/incidents:/app/incidents:ro
+    networks: [capstone-net]
+
+  cart-service:
+    build: { context: ., dockerfile: services/cart_service/Dockerfile }
+    ports: ["58002:8002"]
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOKI_URL: http://loki:3100
+    networks: [capstone-net]
+
+  pricing-service:
+    build: { context: ., dockerfile: services/pricing_service/Dockerfile }
+    ports: ["58003:8003"]
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOKI_URL: http://loki:3100
+    networks: [capstone-net]
+
+  payment-service:
+    build: { context: ., dockerfile: services/payment_service/Dockerfile }
+    ports: ["58004:8004"]
+    restart: unless-stopped
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOKI_URL: http://loki:3100
+    networks: [capstone-net]
+
+  checkout-service:
+    build: { context: ., dockerfile: services/checkout_service/Dockerfile }
+    ports: ["58001:8001"]
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOKI_URL: http://loki:3100
+      CART_SERVICE_URL: http://cart-service:8002
+      PRICING_SERVICE_URL: http://pricing-service:8003
+      PAYMENT_SERVICE_URL: http://payment-service:8004
+    depends_on: [cart-service, pricing-service, payment-service]
+    networks: [capstone-net]
+
+  load-generator:
+    build: { context: ., dockerfile: loadgen/Dockerfile }
+    ports: ["58005:8005"]
+    environment:
+      CHECKOUT_SERVICE_URL: http://checkout-service:8001
+    depends_on: [checkout-service, incident-controller]
+    networks: [capstone-net]

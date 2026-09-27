@@ -1,0 +1,27 @@
+id: INC-08
+alert_text: >
+  Checkout Service latency and error rate both increased sharply with no
+  associated deployment, and request volume looks unusually high.
+  Identify the probable root cause.
+target_service: checkout-service
+load_rps: 200
+duration_seconds: 20
+fault:
+  service: payment-service
+  type: none
+  params: {}
+  change_log: null
+ground_truth:
+  root_cause: >
+    A sudden traffic spike (far above baseline request volume) is saturating
+    the checkout path, increasing latency and errors with no backing code,
+    config, or deployment change.
+  confidence: high
+  required_evidence:
+    - request rate across checkout-service/cart-service/pricing-service/payment-service is far above baseline
+    - latency and error rate rise in step with the request-rate increase
+    - no recent deployment or configuration change on any service
+  expected_tools: [metrics, changes]
+  expected_recommended_action: >
+    Scale out the affected services and/or apply rate limiting after SRE
+    approval; no rollback is warranted since no change caused this.

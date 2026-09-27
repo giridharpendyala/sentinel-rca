@@ -1,0 +1,27 @@
+id: INC-10
+alert_text: >
+  Cart Service is intermittently returning 500 errors with no related
+  deployment or configuration change. Identify the probable root cause.
+target_service: cart-service
+load_rps: 15
+duration_seconds: 20
+fault:
+  service: cart-service
+  type: exception
+  params:
+    probability: 0.4
+  change_log: null
+ground_truth:
+  root_cause: >
+    An unhandled application exception (KeyError) in cart-service's item
+    pricing lookup is intermittently causing 500 errors, unrelated to any
+    deployment or configuration change.
+  confidence: high
+  required_evidence:
+    - cart-service returns intermittent 500 errors
+    - logs show an unhandled KeyError / exception in cart-service
+    - no recent deployment or configuration change on cart-service
+  expected_tools: [logs, changes]
+  expected_recommended_action: >
+    Fix the unhandled KeyError in cart-service's pricing lookup and add input
+    validation; deploy the fix through the normal release process.

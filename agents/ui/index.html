@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autonomous Incident Investigator | Multi-Agent Observability</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-group">
+        <span class="logo-icon">⚡</span>
+        <div>
+          <h1 class="app-title">AgentOps Incident Investigator</h1>
+          <span class="app-subtitle">LangGraph Multi-Agent Telemetry Correlator</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stack Health Indicators -->
+    <div class="header-right">
+      <div class="status-indicators" id="statusPills">
+        <span class="pill pill-loading">Checking telemetry stack...</span>
+      </div>
+      <div class="external-links">
+        <a href="http://localhost:54000" target="_blank" class="nav-link langfuse-badge" title="Langfuse AgentOps Traces">
+          <span class="pulse-dot"></span> Langfuse
+        </a>
+        <a href="http://localhost:53300" target="_blank" class="nav-link" title="Grafana Dashboard">Grafana</a>
+        <a href="http://localhost:59090" target="_blank" class="nav-link" title="Prometheus">Prometheus</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-layout">
+    <!-- Left Column: Scenario Library & Controls -->
+    <section class="left-col">
+      <!-- Scenario Selector -->
+      <div class="glass-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">📁</span>
+            <h2>Incident Scenarios</h2>
+          </div>
+          <span class="badge" id="scenarioCount">10 Presets</span>
+        </div>
+        <p class="section-desc">Select a reproducible synthetic incident to arm fault and investigate:</p>
+        <div class="scenarios-list" id="scenariosList">
+          <div class="scenario-skeleton">Loading scenarios...</div>
+        </div>
+      </div>
+
+      <!-- Action & Control Deck -->
+      <div class="glass-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">🎛️</span>
+            <h2>Investigation Controls</h2>
+          </div>
+          <span class="badge badge-accent" id="activeIncidentBadge">None Selected</span>
+        </div>
+
+        <div class="control-form">
+          <div class="form-group">
+            <label for="targetServiceInput">Target Service</label>
+            <input type="text" id="targetServiceInput" class="form-input" placeholder="payment-service" value="payment-service">
+          </div>
+
+          <div class="form-group">
+            <label for="alertTextInput">Alert Notification Text</label>
+            <textarea id="alertTextInput" class="form-textarea" rows="3" placeholder="Checkout Service p95 latency increased from 400ms to 4.5s..."></textarea>
+          </div>
+
+          <div class="toggle-group">
+            <label class="switch">
+              <input type="checkbox" id="autoApproveToggle">
+              <span class="slider round"></span>
+            </label>
+            <div class="toggle-label">
+              <strong>Auto-Approve Remediation</strong>
+              <small>Skip human approval gate in remediation node</small>
+            </div>
+          </div>
+
+          <div class="button-grid">
+            <button id="btnArmFault" class="btn btn-secondary" title="Arm fault on synthetic service and drive load">
+              <span>💣</span> 1. Arm Fault & Load
+            </button>
+            <button id="btnDisarmFault" class="btn btn-outline" title="Disarm fault and stop traffic">
+              <span>🛑</span> Disarm / Stop
+            </button>
+            <button id="btnInvestigate" class="btn btn-primary btn-full" title="Run LangGraph multi-agent investigation">
+              <span>🚀</span> 2. Run AI Investigation
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Visual Graph, Live Investigation Timeline, RCA Report -->
+    <section class="right-col">
+      <!-- Agent Architecture State Machine Topology -->
+      <div class="glass-card topology-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">🕸️</span>
+            <h2>Multi-Agent Graph Topology</h2>
+          </div>
+          <div class="investigation-meta">
+            <span id="investigationTimer" class="timer-pill">00:00</span>
+            <span id="investigationStatus" class="status-badge badge-idle">Ready</span>
+          </div>
+        </div>
+
+        <div class="agent-nodes-grid" id="agentNodesGrid">
+          <div class="agent-node" id="node-supervisor">
+            <div class="node-icon">🧠</div>
+            <div class="node-name">Supervisor</div>
+            <div class="node-status">Routing / Plan</div>
+          </div>
+          <div class="agent-node" id="node-metrics">
+            <div class="node-icon">📈</div>
+            <div class="node-name">Metrics Agent</div>
+            <div class="node-status">Prometheus</div>
+          </div>
+          <div class="agent-node" id="node-traces">
+            <div class="node-icon">🔍</div>
+            <div class="node-name">Trace Agent</div>
+            <div class="node-status">Tempo OTel</div>
+          </div>
+          <div class="agent-node" id="node-logs">
+            <div class="node-icon">📋</div>
+            <div class="node-name">Log Agent</div>
+            <div class="node-status">Loki (Masked)</div>
+          </div>
+          <div class="agent-node" id="node-changes">
+            <div class="node-icon">📦</div>
+            <div class="node-name">Change Agent</div>
+            <div class="node-status">Deployments</div>
+          </div>
+          <div class="agent-node" id="node-rca_agent">
+            <div class="node-icon">🎯</div>
+            <div class="node-name">RCA Agent</div>
+            <div class="node-status">Grounded Synth</div>
+          </div>
+          <div class="agent-node" id="node-remediation">
+            <div class="node-icon">🛡️</div>
+            <div class="node-name">Remediation</div>
+            <div class="node-status">Human Gate</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Final RCA Report Banner (Appears when completed) -->
+      <div class="glass-card rca-card hidden" id="rcaReportCard">
+        <div class="rca-header">
+          <div class="rca-title-group">
+            <span class="rca-badge">Root Cause Analysis</span>
+            <h3 id="rcaRootCause">Root cause will appear here...</h3>
+          </div>
+          <div class="rca-confidence" id="rcaConfidence">HIGH</div>
+        </div>
+
+        <div class="rca-body">
+          <div class="rca-section">
+            <h4>Cited Telemetry Evidence</h4>
+            <ul id="rcaEvidenceList" class="evidence-list"></ul>
+          </div>
+          <div class="rca-section">
+            <h4>Recommended Action</h4>
+            <div id="rcaRecommendedAction" class="recommended-box"></div>
+          </div>
+        </div>
+
+        <div class="rca-footer">
+          <div class="rca-stats" id="rcaStats">
+            <span>⏱️ Latency: <strong id="statLatency">-</strong></span>
+            <span>📊 Tool Calls: <strong id="statToolCalls">-</strong></span>
+            <span>🔎 Evidence Citations: <strong id="statEvidence">-</strong></span>
+          </div>
+          <a id="rcaLangfuseLink" href="#" target="_blank" class="btn btn-langfuse hidden">
+            <span>📊</span> View Full Trace in Langfuse
+          </a>
+        </div>
+      </div>
+
+      <!-- Live Stream Timeline Log -->
+      <div class="glass-card log-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">📜</span>
+            <h2>Investigation Live Feed & Evidence Stream</h2>
+          </div>
+          <button id="btnClearLogs" class="btn-text">Clear Feed</button>
+        </div>
+
+        <div class="stream-container" id="streamLog">
+          <div class="empty-state" id="emptyStateMsg">
+            <div class="empty-icon">🛰️</div>
+            <h4>No Active Investigation</h4>
+            <p>Select a scenario above, click "Arm Fault & Load", and press "Run AI Investigation" to watch the agents collaborate in real time.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Human-in-the-Loop Remediation Approval Modal -->
+  <div class="modal-overlay hidden" id="approvalModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-icon">⚠️</div>
+        <div>
+          <h3>Human Approval Required</h3>
+          <p>Enterprise Production Gate: Action proposed by RCA Agent</p>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <span class="field-label">Target Service:</span>
+          <span class="field-value" id="modalTargetService">payment-service</span>
+        </div>
+        <div class="modal-field">
+          <span class="field-label">Proposed Action:</span>
+          <span class="field-value highlight" id="modalAction">Restore DB_POOL_SIZE to 100</span>
+        </div>
+        <div class="modal-field">
+          <span class="field-label">Agent Rationale:</span>
+          <p class="field-desc" id="modalRationale">Connection pool exhaustion detected.</p>
+        </div>
+        <div class="approval-notice">
+          Agents operate with read-only access to telemetry. Mutating actions require explicit SRE human authorization.
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="btnRejectAction" class="btn btn-danger">Reject Action</button>
+        <button id="btnApproveAction" class="btn btn-success">Approve & Execute Action</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

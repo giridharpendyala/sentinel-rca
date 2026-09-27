@@ -1,0 +1,29 @@
+{
+  "agent_version": "v2-tuned",
+  "note": "HYPOTHETICAL illustrative example, not a real run: no v2-tuned agent variant exists in this codebase (only v1-baseline does). These numbers are placeholders showing what eval/compare_runs.py's regression report looks like once a tuned version exists to compare against -- do not cite this as a real evaluation result.",
+  "timestamp": "2026-09-20T12:00:00Z",
+  "total_scenarios": 10,
+  "averages": {
+    "rca_accuracy": 0.90,
+    "evidence_grounding": 0.94,
+    "tool_selection": 0.92,
+    "investigation_path": 0.90,
+    "hallucination": 0.96,
+    "avg_duration_seconds": 19.0
+  },
+  "results": [
+    {
+      "incident_id": "INC-01",
+      "target_service": "payment-service",
+      "metrics": {
+        "rca_accuracy": 1.00,
+        "evidence_grounding": 0.96,
+        "tool_selection": 1.00,
+        "investigation_path": 0.95,
+        "hallucination": 1.00,
+        "efficiency": 0.92
+      },
+      "duration_seconds": 18.2
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+id: INC-06
+alert_text: >
+  Payment Service is showing intermittent, very long response times on a
+  fraction of requests, with occasional lock-related errors in the logs.
+  Identify the probable root cause.
+target_service: payment-service
+load_rps: 15
+duration_seconds: 25
+fault:
+  service: payment-service
+  type: lock_contention
+  params:
+    probability: 0.4
+    delay_seconds: 3.0
+  change_log: null
+ground_truth:
+  root_cause: >
+    Database lock contention in payment-service is causing intermittent long
+    delays on a subset of requests ("Lock wait timeout exceeded").
+  confidence: medium
+  required_evidence:
+    - a subset of payment-service requests show multi-second latency spikes
+    - "logs contain 'Lock wait timeout exceeded' entries"
+    - payment_db_pool_active does not stay saturated (rules out pool exhaustion)
+  expected_tools: [metrics, traces, logs]
+  expected_recommended_action: >
+    Identify and resolve the long-held database lock/transaction in
+    payment-service after SRE approval.

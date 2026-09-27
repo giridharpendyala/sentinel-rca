@@ -1,0 +1,27 @@
+id: INC-09
+alert_text: >
+  Checkout Service requests started failing validation shortly after a
+  configuration change to Pricing Service. Identify the probable root cause.
+target_service: pricing-service
+load_rps: 15
+duration_seconds: 15
+fault:
+  service: pricing-service
+  type: config_error
+  params: {}
+  change_log:
+    field: PRICING_STRATEGY
+    from: standard
+    to: invalid_strategy_v2
+    version: config-only
+ground_truth:
+  root_cause: >
+    An invalid PRICING_STRATEGY configuration value on pricing-service is
+    causing request validation failures (422 errors).
+  confidence: high
+  required_evidence:
+    - pricing-service returns validation errors (422) on most requests
+    - change log shows PRICING_STRATEGY changed from standard to invalid_strategy_v2 shortly before the incident
+  expected_tools: [metrics, logs, changes]
+  expected_recommended_action: >
+    Revert PRICING_STRATEGY to "standard" on pricing-service after SRE approval.

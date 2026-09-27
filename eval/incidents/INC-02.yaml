@@ -1,0 +1,26 @@
+id: INC-02
+alert_text: >
+  Pricing Service latency has increased noticeably and CPU utilization looks
+  abnormally high. Identify the probable root cause.
+target_service: pricing-service
+load_rps: 15
+duration_seconds: 30
+fault:
+  service: pricing-service
+  type: cpu_load
+  params:
+    cores: 2
+  change_log: null
+ground_truth:
+  root_cause: >
+    High CPU utilization on pricing-service (background compute contention)
+    is starving request handling and increasing latency.
+  confidence: high
+  required_evidence:
+    - pricing-service process CPU usage is abnormally elevated
+    - pricing-service request latency is elevated relative to baseline
+    - no recent deployment or configuration change on pricing-service
+  expected_tools: [metrics, traces]
+  expected_recommended_action: >
+    Investigate and stop the runaway CPU consumer on pricing-service; consider
+    scaling out or profiling the process after SRE approval.

@@ -1,0 +1,27 @@
+id: INC-04
+alert_text: >
+  Cart Service error rate spiked shortly after a routine deployment window.
+  Identify the probable root cause.
+target_service: cart-service
+load_rps: 20
+duration_seconds: 25
+fault:
+  service: cart-service
+  type: error_rate
+  params:
+    probability: 0.4
+  change_log:
+    field: version
+    from: v2.3.0
+    to: v2.4.0
+    version: v2.4.0
+ground_truth:
+  root_cause: >
+    Bad deployment of cart-service v2.4.0 introduced an elevated error rate.
+  confidence: high
+  required_evidence:
+    - cart-service error rate increased sharply
+    - change log shows cart-service version bumped from v2.3.0 to v2.4.0 shortly before the incident
+  expected_tools: [metrics, logs, changes]
+  expected_recommended_action: >
+    Roll back cart-service to v2.3.0 after SRE approval.

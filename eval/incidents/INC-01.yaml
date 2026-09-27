@@ -1,0 +1,30 @@
+id: INC-01
+alert_text: >
+  Checkout Service p95 latency increased from 400ms to 4.5s starting at 14:32,
+  and the error rate increased significantly. Identify the probable root cause.
+target_service: payment-service
+load_rps: 120
+duration_seconds: 35
+fault:
+  service: payment-service
+  type: db_pool_exhaustion
+  params:
+    pool_size: 2
+  change_log:
+    field: DB_POOL_SIZE
+    from: 100
+    to: 2
+    version: v4.18.2
+ground_truth:
+  root_cause: >
+    Payment Service database connection pool exhaustion following deployment
+    v4.18.2, which reduced DB_POOL_SIZE from 100 to 2.
+  confidence: high
+  required_evidence:
+    - payment-service accounts for most of the checkout request latency
+    - payment_db_pool_active saturates at payment_db_pool_size
+    - "logs contain 'Timeout waiting for database connection' and 'Unable to acquire JDBC connection'"
+    - change log shows DB_POOL_SIZE changed from 100 to 2 shortly before the incident
+  expected_tools: [metrics, traces, logs, changes]
+  expected_recommended_action: >
+    Restore payment-service DB_POOL_SIZE to a safe value (e.g. 100) after SRE approval.

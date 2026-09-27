@@ -1,0 +1,26 @@
+id: INC-05
+alert_text: >
+  Checkout Service latency has increased even though error rates remain low.
+  Identify the probable root cause.
+target_service: pricing-service
+load_rps: 15
+duration_seconds: 20
+fault:
+  service: pricing-service
+  type: latency
+  params:
+    delay_seconds: 1.5
+  change_log: null
+ground_truth:
+  root_cause: >
+    Pricing Service (a downstream dependency of Checkout) has slowed down,
+    adding fixed extra latency to every request without raising errors.
+  confidence: high
+  required_evidence:
+    - pricing-service p95 latency is elevated while its error rate stays low
+    - checkout-service latency increase traces back to time spent in pricing-service
+    - no recent deployment or configuration change on pricing-service
+  expected_tools: [metrics, traces]
+  expected_recommended_action: >
+    Investigate pricing-service's own dependencies/performance; no rollback
+    evidence exists, so escalate to the pricing-service owning team.
